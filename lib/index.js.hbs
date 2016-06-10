@@ -12,42 +12,10 @@ var mapper = require('./mapper');
 
 var {{api name}} = module.exports = integration('{{name}}')
   .endpoint('{{endpoint}}')
-  .ensure('settings.apiKey')
+  .ensure('settings.token')
   .channels(['server'])
   .mapper(mapper)
-  .retries({{retries}});
-
-/**
- * Identify.
- *
- * https://segment.com/docs/spec/identify/
- *
- * @param {Identify} identify
- * @param {Function} fn
- * @api public
- */
-
-{{api name}}.prototype.identify = function(payload, fn){
-  var identify = request('/s').bind(this);
-  var alias = request('/a').bind(this);
-  identify(payload.identify, function(err){
-    if (err) return fn(err);
-    if (!payload.alias) return fn();
-    alias(payload.alias, fn);
-  });
-};
-
-/**
- * Group.
- *
- * https://segment.com/docs/spec/group/
- *
- * @param {Group} group
- * @param {Function} fn
- * @api public
- */
-
-{{api name}}.prototype.group = request('/s');
+  .retries(3);
 
 /**
  * Track.
@@ -60,65 +28,18 @@ var {{api name}} = module.exports = integration('{{name}}')
  * @api private
  */
 
-{{api name}}.prototype.track = request('/e');
-
-/**
- * Page.
- *
- * https://segment.com/docs/spec/screen/
- * https://segment.com/docs/spec/page/
- *
- * @param {Page} page
- * @param {Object} settings
- * @param {Function} fn
- * @api private
- */
-
-{{api name}}.prototype.screen = {{api name}}.prototype.page = request('/e');
-
-{{#if methods.ecommerce}}
-/**
- * Completed Order.
- *
- * https://segment.com/docs/spec/ecommerce/
- *
- * @api private
- * @param {Object} track
- * @param {Object} settings
- * @param {Function} done
- */
-{{api name}}.prototype.completedOrder = function(track, done) {
+{{api name}}.prototype.track = function(track, cb) {
   var self = this;
-  var payloads = mapper.completedOrder.call(this, track);
 
-  // Todo
-};
-{{/if}}
-
-/**
- * Alias.
- *
- * @param {Alias} alias
- * @param {Object} settings
- * @param {Function} fn
- * @api private
- */
-
-{{api name}}.prototype.alias = request('/a');
-
-/**
- * Generate request.
- *
- * @param {String} path
- * @return {Function}
- * @api private
- */
-
-function request(path){
-  return function(payload, fn){
-    return this
-      .get(path)
-      .query(payload)
-      .end(this.handle(fn));
+  var body = {
+    event: track.event(),
+    properties: track.properties(),
+    token: this.settings.token
   };
-}
+
+  self
+    .post(endpoint)
+    .set('User-Agent', 'Segment.io/1.0.0')
+    .query(body)
+    .end(self.handle(cb));
+};
